@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useContext, useState } from "react";
 import { TextField, Button, Stack, Typography, Container } from "@mui/material";
 import { useForm, SubmitHandler } from "react-hook-form";
-import { http_POST } from "../../services/httpService";
 import PlayerDropDown from "./PlayerDropDown";
 import * as io from "socket.io-client";
-import DotLoader from "react-spinners/DotLoader";
-// const socket = io.connect("http://localhost:4000");
-import { QueryClient } from "@tanstack/react-query";
-import Grid from "@mui/material/Grid";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { theme } from "../../index";
+import { AppContext } from "../../context/AppContext";
+import { AppContextType } from "../../context/AppContext";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Divider from "@mui/material/Divider/Divider";
+import { useMediaQuery, useTheme } from "@mui/material";
+
+const socket = io.connect("http://localhost:3001");
 
 type formValues = {
-  PlayerOne: string;
-  PlayerTwo: string;
-  ScorePlayerOne: number;
-  ScorePlayerTwo: number;
+  PlayerOne: number;
+  PlayerTwo: number;
+  ScorePlayerOne?: number;
+  ScorePlayerTwo?: number;
 };
 
 interface Props {
@@ -32,54 +33,75 @@ const AddGameForm: React.FC<Props> = ({
   const form = useForm<formValues>();
 
   const [startGame, setStartGame] = useState(false);
-  const [players, setPlayers] = useState([
-    { name: "Vegard Røsholm", year: 1994 },
-    { name: "Odd Sande", year: 1972 },
-    { name: "Per Stian Hoff", year: 1974 },
-    { name: "Lino Dolva", year: 2008 },
-    { name: "Torgeir Tynes", year: 1957 },
-    { name: "Lars Klingenberg", year: 1993 },
-    { name: "Martin Tho", year: 1994 },
-    { name: "Ola Syversen", year: 1994 },
-  ]);
-
-  const queryClient = new QueryClient();
-  const isMobile = useMediaQuery(theme.breakpoints.down("xs"));
+  const [ToggledWinner, setToggleddWinner] = useState();
+  const [winnerId, setWinnerId] = useState(ToggledWinner);
+  const [error, setError] = useState(false);
   const handleClickStartGame = () => {
+    emitSockeEvent();
     setStartGame(true);
   };
 
-  //   const { error, isPending, data, mutate } = useMutation({
-  //     mutationFn: (data) => {
-  //       return http_POST("", data);
-  //     },
-  //   });
-
   const onSubmit = async (gameValues: formValues) => {
-    // const res = await http_POST("/addGame", gameValues);
-    // console.log(res);
-    // const [mutate, {isLoading, isError, error}] = useMutation(addGame);
-    emitSockeEvent();
-    mutate(gameValues);
-    console.log(gameValues);
+    console.log("ToggledWinnerId: ", ToggledWinner);
+    const playerIds = [gameValues.PlayerOne, gameValues.PlayerTwo];
+    const mappedFormValues = {
+      // Players: [gameValues.PlayerOne, gameValues.PlayerTwo],
+      PlayerOneId: gameValues.PlayerOne,
+      PlayerTwoId: gameValues.PlayerTwo,
+      ScorePlayerOne: gameValues.ScorePlayerOne || null,
+      ScorePlayerTwo: gameValues.ScorePlayerTwo || null,
+      WinnerId: ToggledWinner,
+      // LoserId: allPlayers.find((p) => p.id !== ToggledWinner)?.id,
+      LoserId: playerIds.find((p) => p !== ToggledWinner),
+    };
+
+    if (!ToggledWinner) {
+      setError(true);
+    } else {
+      console.log(mappedFormValues);
+      // mutate(mappedFormValues);
+      mutate(mappedFormValues);
+      setIsGameRegistered(true);
+
+      console.log(gameValues);
+    }
   };
 
-  //   useEffect(() => {
-  //     socket.on("receive_message", (data) => {
-  //       alert(data);
-  //     });
-  //   }, [socket]);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const emitSockeEvent = () => {
-    //   socket.emit("start_game", { message: "Vegard is now playing vs. Torgeir" });
-    setIsGameRegistered(true);
-  };
+  useEffect(() => {
+    socket.on("received_data", (data) => {
+      handleSetGameDetails(data);
+    });
+  }, [socket]);
 
   const { register, handleSubmit, formState, watch } = form;
   const { errors } = formState;
 
+  const handleChangeToggle = (
+    event: React.MouseEvent<HTMLElement>,
+    winner: any
+  ) => {
+    setToggleddWinner(winner);
+  };
+
   const playerOneStateSelected = watch("PlayerOne");
   const playerTwoStateSelected = watch("PlayerTwo");
+
+  const emitSockeEvent = () => {
+    socket.emit("start_game", {
+      message: `${
+        allPlayers.find((p) => p.id === playerOneStateSelected)?.firstName
+      } vs. ${
+        allPlayers.find((p) => p.id === playerTwoStateSelected)?.firstName
+      }`,
+    });
+  };
+  const { allPlayers, handleSetGameDetails } = useContext(
+    AppContext
+  ) as AppContextType;
+  console.log("All players:", allPlayers);
 
   return (
     <Container>
@@ -94,7 +116,9 @@ const AddGameForm: React.FC<Props> = ({
             sx={{ marginBottom: 4, justifyContent: "center" }}
           >
             <PlayerDropDown
-              players={players.filter((p) => p.name !== playerTwoStateSelected)}
+              players={allPlayers.filter(
+                (p) => p.id !== playerTwoStateSelected
+              )}
               control={form.control}
               name={"PlayerOne"}
               label="Player 1"
@@ -102,11 +126,11 @@ const AddGameForm: React.FC<Props> = ({
             <PlayerDropDown
               name={"PlayerTwo"}
               control={form.control}
-              players={players.filter((p) => p.name !== playerOneStateSelected)}
+              players={allPlayers.filter(
+                (p) => p.id !== playerOneStateSelected
+              )}
               label="Player 2"
             />
-            {/* <Grid columns={{ xs: 4, sm: 8, md: 12 }}>
-            </Grid> */}
           </Stack>
           {!startGame && playerOneStateSelected && playerTwoStateSelected && (
             <Button
@@ -118,46 +142,110 @@ const AddGameForm: React.FC<Props> = ({
             </Button>
           )}
           {startGame && (
-            <Stack spacing={2} direction="row" sx={{ marginBottom: 4 }}>
-              <TextField
-                type="text"
-                variant="outlined"
-                color="secondary"
-                label="Score player one"
-                fullWidth
-                // sx={{ mb: 4, xs: 1, lg: 4, md: 10 }}
-                {...register("ScorePlayerOne", {
-                  required: "Score is required",
-
-                  pattern: {
-                    //   value: /^(0|[1-9]\d*)(\.\d+)?$/,
-                    value: /^(([01]?[0-9])|(20))$/,
-                    message: "Må kun inneholde positive tall opptil max. 20.",
-                  },
-                })}
-                error={!!errors.ScorePlayerOne}
-                helperText={errors.ScorePlayerOne?.message}
-              />
-              <TextField
-                type="text"
-                variant="outlined"
-                color="secondary"
-                label="Score player two"
-                fullWidth
-                sx={{ mb: 4 }}
-                {...register("ScorePlayerTwo", {
-                  required: "Score is required",
-                  pattern: {
-                    value: /^(([01]?[0-9])|(20))$/,
-                    message: "Må kun inneholde positive tall opptil max. 20.",
-                  },
-                })}
-                error={!!errors.ScorePlayerTwo}
-                helperText={errors.ScorePlayerTwo?.message}
-              />
-            </Stack>
+            <>
+              <Typography sx={{ marginBottom: 2 }}>Select winner:</Typography>
+              <ToggleButtonGroup
+                color="success"
+                exclusive
+                aria-label="Platform"
+                value={ToggledWinner}
+                onChange={handleChangeToggle}
+                sx={{ marginBottom: 3 }}
+              >
+                <ToggleButton
+                  value={watch("PlayerOne")}
+                  sx={{
+                    ":hover": { background: "#EFF5EF", color: "#348037" },
+                    minWidth: "60px",
+                  }}
+                >
+                  {/* {watch("PlayerOne")} */}
+                  {
+                    allPlayers.find((p) => p.id === watch("PlayerOne"))
+                      ?.firstName
+                  }
+                </ToggleButton>
+                <ToggleButton
+                  value={watch("PlayerTwo")}
+                  sx={{
+                    ":hover": { background: "#EFF5EF", color: "#348037" },
+                    minWidth: "60px",
+                  }}
+                >
+                  {/* {watch("PlayerTwo")} */}
+                  {
+                    allPlayers.find((p) => p.id === watch("PlayerTwo"))
+                      ?.firstName
+                  }
+                </ToggleButton>
+              </ToggleButtonGroup>
+              {error && (
+                <Typography sx={{ color: "red", marginBottom: 2 }}>
+                  Må velge en vinner
+                </Typography>
+              )}
+            </>
           )}
+          {startGame && (
+            <>
+              <Divider sx={{ marginBottom: 2 }}></Divider>
+              <>
+                <Typography sx={{ marginBottom: 2 }}>
+                  Enter score (Optional)
+                </Typography>
+                <Stack
+                  spacing={2}
+                  direction="row"
+                  sx={{ marginBottom: 4, justifyContent: "center" }}
+                >
+                  <TextField
+                    type="text"
+                    variant="outlined"
+                    color="secondary"
+                    label="Score player one"
+                    fullWidth={isMobile}
+                    // sx={{ mb: 4, xs: 1, lg: 4, md: 10 }}
+                    {...register("ScorePlayerOne", {
+                      // required: "Score is required",
 
+                      pattern: {
+                        //   value: /^(0|[1-9]\d*)(\.\d+)?$/,
+                        value: /^(([01]?[0-9])|(20))$/,
+                        message:
+                          "Må kun inneholde positive tall opptil max. 20.",
+                      },
+                    })}
+                    error={!!errors.ScorePlayerOne}
+                    helperText={errors.ScorePlayerOne?.message}
+                  />
+                  <TextField
+                    type="text"
+                    variant="outlined"
+                    color="secondary"
+                    label="Score player two"
+                    fullWidth={isMobile}
+                    sx={{ mb: 4 }}
+                    {...register("ScorePlayerTwo", {
+                      // required: "Score is required",
+                      pattern: {
+                        value: /^(([01]?[0-9])|(20))$/,
+                        message:
+                          "Må kun inneholde positive tall opptil max. 20.",
+                      },
+                    })}
+                    error={!!errors.ScorePlayerTwo}
+                    helperText={errors.ScorePlayerTwo?.message}
+                  />
+                </Stack>
+              </>
+            </>
+          )}
+          {startGame && ToggledWinner && (
+            <Typography>{`${
+              allPlayers.find((p) => p.id === ToggledWinner)?.firstName
+            } is the winner!`}</Typography>
+          )}
+          <br />
           {startGame && (
             <Button variant="contained" color="secondary" type="submit">
               Register game

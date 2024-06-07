@@ -2,14 +2,9 @@ import React, { useState, useContext } from "react";
 import Container from "@mui/material/Container";
 import { Typography } from "@mui/material";
 import Switch from "@mui/material/Switch";
-import Stack from "@mui/material/Stack";
-import { themeFunction } from "../../utils/theme";
-import { AppContext } from "../../context/AppContext";
-import { AppContextType } from "../../context/AppContext";
+import { AppContext, AppContextType } from "../../context/AppContext";
 
 const Settings = () => {
-  const [dark, setDark] = useState(false);
-
   const { handleSetDarkMode, darkMode } = useContext(
     AppContext
   ) as AppContextType;
@@ -30,7 +25,11 @@ const Settings = () => {
         <Typography>
           {darkMode ? "Turn on light mode" : "Turn on dark mode"}
         </Typography>
-        <Switch checked={darkMode} onClick={handleSetDarkMode} />
+        <Switch
+          checked={darkMode}
+          onClick={handleSetDarkMode}
+          color="primary"
+        />
       </Container>
       <Container
         sx={{

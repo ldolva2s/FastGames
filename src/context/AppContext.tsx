@@ -1,11 +1,16 @@
-import React, { useState, createContext } from "react";
+import React, { useState, createContext, useEffect } from "react";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { themeFunction } from "../utils/theme";
+import { Player } from "../utils/types";
+import { http_GET } from "../services/httpService";
 
 export type AppContextType = {
   darkMode: boolean;
   setDarkMode: () => void;
   handleSetDarkMode: () => void;
+  allPlayers: Player[];
+  isPlayingGame: boolean;
+  gameDetails: any;
+  handleSetGameDetails: (data: any) => void;
 };
 
 export const AppContext = createContext<AppContextType | {}>({});
@@ -15,12 +20,48 @@ interface Props {
 }
 
 export const AppContextProvider: React.FC<Props> = ({ children }) => {
+  useEffect(() => {
+    if (sessionStorage.getItem("allPlayers") === null) {
+      getAllPlayers();
+    }
+  }, []);
+
+  const getSessionStorageOrDefault = (key: string, defaultValue: any) => {
+    const stored = sessionStorage.getItem(key);
+    if (!stored) {
+      return defaultValue;
+    } else {
+      return JSON.parse(stored);
+    }
+  };
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [error, setError] = useState();
+  const [loading, setLoading] = useState<boolean>();
+  const [isPlayingGame, setIsPlayingGame] = useState<boolean>(false);
+  const [gameDetails, setGameDetails] = useState();
+  const [allPlayers, setAllPlayers] = useState(
+    getSessionStorageOrDefault("allPlayers", [])
+  );
+
+  const getAllPlayers = async () => {
+    setLoading(true);
+    try {
+      const res = await http_GET("/Player/GetAllPlayers");
+      sessionStorage.setItem("allPlayers", JSON.stringify(res));
+      console.log(res);
+      setAllPlayers(res);
+    } catch (e: any) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetGameDetails = (data: any) => {
+    setGameDetails(data);
+  };
 
   const handleSetDarkMode = () => setDarkMode(!darkMode);
-
-  type modeType = "light" | "dark";
-  type darkMode = boolean;
 
   const theme = createTheme({
     palette: {
@@ -42,6 +83,10 @@ export const AppContextProvider: React.FC<Props> = ({ children }) => {
       value={{
         darkMode,
         handleSetDarkMode,
+        allPlayers,
+        isPlayingGame,
+        gameDetails,
+        handleSetGameDetails,
       }}
     >
       <ThemeProvider theme={theme}>{children}</ThemeProvider>

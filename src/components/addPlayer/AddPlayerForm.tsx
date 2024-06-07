@@ -138,7 +138,10 @@ const AddPlayerForm: React.FC<Props> = ({ mutate }) => {
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
                   format="DD-MM-YYYY"
-                  sx={{ marginTop: 2, marginBottom: 2 }}
+                  sx={{
+                    marginTop: 2,
+                    marginBottom: 2,
+                  }}
                   value={value}
                   onChange={(event) => {
                     console.log(event.toDate().toUTCString());
@@ -149,6 +152,7 @@ const AddPlayerForm: React.FC<Props> = ({ mutate }) => {
             )}
           />
         </Container>
+
         <Controller
           control={control}
           name="isInFast"
@@ -181,7 +185,7 @@ const AddPlayerForm: React.FC<Props> = ({ mutate }) => {
         <br></br>
         {isInFast && (
           <Stack>
-            <Box sx={{ minWidth: 120, marginBottom: 4, marginTop: 4 }}>
+            <Box sx={{ minWidth: 120, marginBottom: 2, marginTop: 2 }}>
               <TextField
                 select
                 fullWidth

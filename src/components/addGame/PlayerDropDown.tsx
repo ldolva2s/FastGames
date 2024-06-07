@@ -2,10 +2,10 @@ import * as React from "react";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import { Controller } from "react-hook-form";
-
+import { Player } from "../../utils/types";
 interface Props {
   label: string;
-  players: Array<any>;
+  players: Array<Player>;
   control: any;
   name: string;
 }
@@ -26,21 +26,26 @@ const PlayerDropDown: React.FC<Props> = ({ label, players, control, name }) => {
               value={
                 value
                   ? players.find((player) => {
-                      return value === player.name;
+                      return value === player.id;
                     }) ?? null
                   : null
               }
               getOptionLabel={(player) => {
-                return player.name;
+                return `${player.firstName} ${player.lastName}`;
               }}
               onChange={(event: any, newValue) => {
-                onChange(newValue ? newValue.name : null);
+                onChange(newValue ? newValue.id : null);
               }}
               sx={{ width: 300 }}
               id="controllable-states-demo"
               options={players}
-              renderInput={(params) => (
-                <TextField {...params} label={label} inputRef={ref} />
+              renderInput={(params: any) => (
+                <TextField
+                  {...params}
+                  id="textfieldId"
+                  label={label}
+                  inputRef={ref}
+                />
               )}
             />
             <br></br>
